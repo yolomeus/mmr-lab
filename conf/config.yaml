@@ -1,0 +1,32 @@
+defaults:
+  - model: mlp
+  - datamodule: fashion_mnist
+
+gpus: 0
+num_workers: 4
+random_seed: 1590258941
+wandb_log: False
+
+training:
+  epochs: 100
+  batch_size: 32
+  # checkpointing
+  save_ckpts: 10
+  monitor: val_loss
+  mode: min
+  patience: 5
+
+testing:
+  log_dir: 'outputs/model.mlp.MLP/2020-11-12/18-15-01'
+  test_best_k: 5
+  batch_size: 512
+
+# metric_module: pytorch_lightning.metrics.classification
+metrics:
+  - _target_: pytorch_lightning.metrics.classification.Accuracy
+  - _target_: pytorch_lightning.metrics.classification.Fbeta
+    num_classes: 10
+
+hydra:
+  run:
+    dir: ./outputs/${model._target_}/${now:%Y-%m-%d}/${now:%H-%M-%S}
