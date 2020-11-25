@@ -77,13 +77,20 @@ class ClassificationDataModule(AbstractDefaultDataModule):
         :return (tuple): instances and labels for a specific split.
         """
 
+    def get_dataset_class(self):
+        """This method can be overwritten to replace the standard classification dataset class.
+
+        :return: a torch.utils.Dataset class to be used.
+        """
+        return self._ClassificationDataset
+
     def _create_dataset(self, split: DatasetSplit):
         """Helper factory method for building a split specific pytorch dataset.
 
         :param split: which split to build.
         :return: the split specific pytorch dataset.
         """
-        return self._ClassificationDataset(*self.prepare_instances_and_labels(split))
+        return self.get_dataset_class()(*self.prepare_instances_and_labels(split))
 
     @property
     def train_ds(self):
