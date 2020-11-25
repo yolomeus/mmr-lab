@@ -117,3 +117,18 @@ class ClassificationDataModule(AbstractDefaultDataModule):
 
         def __len__(self):
             return len(self.instances)
+
+
+class KFoldDataModule(ClassificationDataModule):
+    """DataModule that needs to select a split when instantiating."""
+
+    def __init__(self, k_splits, train_conf, test_conf, num_workers, pin_memory):
+        super().__init__(train_conf, test_conf, num_workers, pin_memory)
+        self.k_splits = k_splits
+
+    @abstractmethod
+    def set_fold(self, i):
+        """Set the DataModule's state, so that it represents the i-th split.
+
+        :param i: Set the i-th split.
+        """
