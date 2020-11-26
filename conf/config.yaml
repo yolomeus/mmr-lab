@@ -1,11 +1,11 @@
 defaults:
   - model: mlp
-  - datamodule: fashion_mnist
+  - datamodule: mvsa
 
-gpus: 0
-num_workers: 4
+gpus: 1
+num_workers: 0
 random_seed: 1590258941
-wandb_log: False
+wandb_log: True
 
 training:
   epochs: 100
@@ -17,7 +17,7 @@ training:
   patience: 5
 
 testing:
-  log_dir: 'outputs/model.mlp.MLP/2020-11-12/18-15-01'
+  log_dir: 'outputs/model.mlp.MLP/2020-11-19/18-17-17'
   test_best_k: 5
   batch_size: 512
 
