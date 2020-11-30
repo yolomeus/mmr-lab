@@ -1,14 +1,14 @@
 defaults:
-  - model: mlp
+  - model: dummy
   - datamodule: mvsa
 
 gpus: 1
-num_workers: 0
+num_workers: 14
 random_seed: 1590258941
 wandb_log: True
 
 training:
-  epochs: 100
+  epochs: 3
   batch_size: 32
   # checkpointing
   save_ckpts: 10
@@ -19,7 +19,7 @@ training:
 testing:
   log_dir: 'outputs/model.mlp.MLP/2020-11-19/18-17-17'
   test_best_k: 5
-  batch_size: 512
+  batch_size: 128
 
 # metric_module: pytorch_lightning.metrics.classification
 metrics:
