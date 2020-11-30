@@ -76,6 +76,9 @@ class MVSADataModule(KFoldDataModule):
         id_label = pd.read_csv(label_filepath).to_numpy()
         self.id_to_label = {idx: label for idx, label in id_label}
 
+        # broken image
+        del self.id_to_label[15324]
+
         # initialize with first fold
         self.set_fold(0)
 
