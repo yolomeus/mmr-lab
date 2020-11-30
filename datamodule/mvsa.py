@@ -25,12 +25,12 @@ class MVSADataModule(KFoldDataModule):
 
     def __init__(self,
                  data_dir,
-                 k_splits,
+                 k_folds,
                  train_conf,
                  test_conf,
                  num_workers,
                  pin_memory):
-        super().__init__(k_splits, train_conf, test_conf, num_workers, pin_memory)
+        super().__init__(k_folds, train_conf, test_conf, num_workers, pin_memory)
 
         self._current_fold = None
         self.train_ids = None
@@ -43,6 +43,7 @@ class MVSADataModule(KFoldDataModule):
         self.special_tokens = ['<PAD>', '<UNK>']
         self.label_filename = 'valid_pairlist.txt'
         self.split_dirname = 'splits'
+        self.vocab_file = to_absolute_path('data/generated/vocab.json')
 
         self.data_dir = to_absolute_path(data_dir)
         self.split_dir = os.path.join(self.data_dir, self.split_dirname)
@@ -63,24 +64,20 @@ class MVSADataModule(KFoldDataModule):
     def prepare_data(self, *args, **kwargs):
         # build vocab or load existing
         os.makedirs(to_absolute_path('data/generated/'), exist_ok=True)
-        vocab_file = to_absolute_path('data/generated/vocab.json')
-        if not os.path.exists(vocab_file):
-            self.word_to_id = self._build_vocab(vocab_file)
-        else:
-            with open(vocab_file, 'r', encoding='utf8') as fp:
-                self.word_to_id = json.load(fp)
+        if not os.path.exists(self.vocab_file):
+            self._build_vocab(self.vocab_file)
 
     def setup(self, stage: Optional[str] = None):
         # load labels
         label_filepath = os.path.join(self.data_dir, self.label_filename)
         id_label = pd.read_csv(label_filepath).to_numpy()
         self.id_to_label = {idx: label for idx, label in id_label}
+        # load vocab
+        with open(self.vocab_file, 'r', encoding='utf8') as fp:
+            self.word_to_id = json.load(fp)
 
         # broken image
         del self.id_to_label[15324]
-
-        # initialize with first fold
-        self.set_fold(0)
 
     def prepare_instances_and_labels(self, split: DatasetSplit):
         if split == DatasetSplit.TRAIN:
@@ -124,8 +121,6 @@ class MVSADataModule(KFoldDataModule):
 
         with open(output_file, 'w', encoding='utf8') as vocab_file:
             json.dump(word_to_id, vocab_file)
-
-        return word_to_id
 
 
 class MVSADataset(Dataset):
