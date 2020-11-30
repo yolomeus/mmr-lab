@@ -167,6 +167,7 @@ class MVSADataset(Dataset):
     @staticmethod
     def collate_fn(batch):
         images, sequences, labels = zip(*batch)
+        images = torch.stack(images)
         sequences = pad_sequence(sequences, batch_first=True)
         return (images, sequences), torch.as_tensor(labels)
 
