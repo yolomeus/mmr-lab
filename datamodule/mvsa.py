@@ -45,8 +45,8 @@ class MVSADataModule(KFoldDataModule):
         self.split_dirname = 'splits'
 
         self.data_dir = to_absolute_path(data_dir)
-        self.split_dir = os.path.join(data_dir, self.split_dirname)
-        self.instances_dir = os.path.join(data_dir, 'data')
+        self.split_dir = os.path.join(self.data_dir, self.split_dirname)
+        self.instances_dir = os.path.join(self.data_dir, 'data')
 
     def set_fold(self, i):
         self._current_fold = i
