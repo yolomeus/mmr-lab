@@ -137,7 +137,7 @@ class ClassificationDataModule(AbstractDefaultDataModule):
             return len(self.instances)
 
 
-class KFoldDataModule(ClassificationDataModule, ABC):
+class KFoldDataModule(ClassificationDataModule):
     """DataModule that needs to select a split when instantiating."""
 
     def __init__(self, k_folds, train_conf, test_conf, num_workers, pin_memory):
