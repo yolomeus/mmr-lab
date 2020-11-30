@@ -49,7 +49,7 @@ class MVSADataModule(KFoldDataModule):
         self.split_dir = os.path.join(self.data_dir, self.split_dirname)
         self.instances_dir = os.path.join(self.data_dir, 'data')
 
-    def set_fold(self, i):
+    def _set_fold(self, i):
         self._current_fold = i
         split_n = i + 1
 
@@ -67,7 +67,9 @@ class MVSADataModule(KFoldDataModule):
         if not os.path.exists(self.vocab_file):
             self._build_vocab(self.vocab_file)
 
-    def setup(self, stage: Optional[str] = None):
+    def setup(self, stage: Optional[str] = None, fold=None):
+        if fold is not None:
+            self._set_fold(fold)
         # load labels
         label_filepath = os.path.join(self.data_dir, self.label_filename)
         id_label = pd.read_csv(label_filepath).to_numpy()

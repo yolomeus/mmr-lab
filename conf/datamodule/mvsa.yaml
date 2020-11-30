@@ -3,4 +3,4 @@ _target_: datamodule.mvsa.MVSADataModule
 
 data_dir: D:\datasets\multimodal\sentiment_analysis\mvsa_data\mvsa_multiple
 
-k_splits: 11
+k_folds: 11

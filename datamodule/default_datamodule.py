@@ -1,4 +1,5 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
+from typing import Optional
 
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
@@ -136,16 +137,19 @@ class ClassificationDataModule(AbstractDefaultDataModule):
             return len(self.instances)
 
 
-class KFoldDataModule(ClassificationDataModule):
+class KFoldDataModule(ClassificationDataModule, ABC):
     """DataModule that needs to select a split when instantiating."""
 
-    def __init__(self, k_splits, train_conf, test_conf, num_workers, pin_memory):
+    def __init__(self, k_folds, train_conf, test_conf, num_workers, pin_memory):
         super().__init__(train_conf, test_conf, num_workers, pin_memory)
-        self.k_splits = k_splits
+        self.k_folds = k_folds
 
     @abstractmethod
-    def set_fold(self, i):
-        """Set the DataModule's state, so that it represents the i-th split.
+    def setup(self, stage: Optional[str] = None, fold: int = None):
+        """Supercharges original setup with fold argument. It should be used as setter, for loading the state of the
+        corresponding fold. Doing this through the setup method ensures that the current fold state is synced across
+        multiple devices.
 
-        :param i: Set the i-th split.
+        :param stage: see LightningDataModule
+        :param fold: the fold to set the state of the DataModule to
         """
