@@ -4,12 +4,14 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import torch
 import torchvision
 from PIL import Image
 from hydra.utils import to_absolute_path
-from torch.nn import Sequential
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
-from torchvision.transforms import Resize, Normalize
+from torchvision.transforms import Resize, Normalize, Compose
+from tqdm import tqdm
 
 from datamodule import DatasetSplit
 from datamodule.default_datamodule import KFoldDataModule
@@ -38,6 +40,7 @@ class MVSADataModule(KFoldDataModule):
 
         self.word_to_id = None
 
+        self.special_tokens = ['<PAD>', '<UNK>']
         self.label_filename = 'valid_pairlist.txt'
         self.split_dirname = 'splits'
 
@@ -101,9 +104,9 @@ class MVSADataModule(KFoldDataModule):
         return ids
 
     def _build_vocab(self, output_file):
-        vocab = set('<UNK>')
+        vocab = set()
         # build vocabulary
-        for filename in os.listdir(self.instances_dir):
+        for filename in tqdm(os.listdir(self.instances_dir), desc='building vocabulary'):
             if filename.endswith('.txt'):
                 text_path = os.path.join(self.instances_dir, filename)
                 with open(text_path, 'r', encoding='utf8') as fp:
@@ -112,7 +115,10 @@ class MVSADataModule(KFoldDataModule):
                     for token in tokens:
                         vocab.add(token.lower())
 
-        word_to_id = {word: i for i, word in enumerate(list(vocab))}
+        word_to_id = {word: i for i, word in enumerate(self.special_tokens)}
+        for i, word in enumerate(list(vocab)):
+            word_to_id[word] = i + len(self.special_tokens)
+
         with open(output_file, 'w', encoding='utf8') as vocab_file:
             json.dump(word_to_id, vocab_file)
 
