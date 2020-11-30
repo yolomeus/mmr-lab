@@ -134,9 +134,12 @@ class MVSADataset(Dataset):
 
         resnet_mean = np.array([0.485, 0.456, 0.406])
         resnet_std = np.array([0.229, 0.224, 0.225])
-        self.resnet_transform = Sequential(
-            Resize((224, 224)),
-            Normalize(mean=resnet_mean.tolist(), std=resnet_std.tolist()),
+
+        self.resnet_transform = Compose(
+            [
+                Resize((224, 224)),
+                Normalize(mean=resnet_mean.tolist(), std=resnet_std.tolist())
+            ]
         )
         self.denormalize = Normalize((-resnet_mean / resnet_std).tolist(),
                                      (1.0 / resnet_std).tolist())
@@ -152,14 +155,20 @@ class MVSADataset(Dataset):
 
         text = self._read_text_instance(file_id)
         tokens = fe_net_tokenize(text)
-        token_ids = [self.word_to_id.get(token, '<UNK>') for token in tokens]
+        token_ids = torch.as_tensor([self.word_to_id.get(token, '<UNK>') for token in tokens])
 
         label = self.id_to_label[file_id]
 
-        return (img, token_ids), label
+        return img, token_ids, label
 
     def __len__(self):
         return len(self.ids)
+
+    @staticmethod
+    def collate_fn(batch):
+        images, sequences, labels = zip(*batch)
+        sequences = pad_sequence(sequences, batch_first=True)
+        return (images, sequences), torch.as_tensor(labels)
 
     def _read_img_instance(self, file_id):
         img_path = os.path.join(self.data_dir, f'{file_id}.jpg')
