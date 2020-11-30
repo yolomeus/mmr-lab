@@ -76,3 +76,26 @@ class WandbBoundLogger(WandbLogger):
             """Name for the maximum value of this metric.
             """
             return 'max_' + self.name
+
+
+class KFoldWandbLogger(WandbBoundLogger):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.current_fold = None
+
+    def set_fold(self, i):
+        self.current_fold = i
+
+    @rank_zero_only
+    def log_metrics(self, metrics, step):
+        assert self.current_fold is not None, 'select a fold to log to.'
+        metrics_at_k = {f'fold_{self.current_fold:02d}_{name}': value for name, value in metrics.items() if
+                        name != 'epoch'}
+        # epoch is not fold specific
+        metrics_at_k['epoch'] = metrics['epoch']
+        super().log_metrics(metrics_at_k, step)
+
+    def log_model_average(self):
+        # TODO implement
+        for name, metric_bounds in self._bounds_dict.items():
+            pass
