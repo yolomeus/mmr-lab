@@ -85,6 +85,7 @@ class KFoldWandbLogger(WandbBoundLogger):
         self.current_fold = None
 
     def set_fold(self, i):
+        # TODO next fold instead
         self.current_fold = i
 
     @rank_zero_only
@@ -100,7 +101,15 @@ class KFoldWandbLogger(WandbBoundLogger):
     def log_model_average(self):
         metric_averages = defaultdict(lambda: {'max': 0, 'min': 0})
         for name, metric_bounds in self._bounds_dict.items():
-            metric_name = '_'.join(name.split('_')[-2:])
+            # temporary solution, TODO: rework naming
+            parts = name.split('_')
+            if len(parts) <= 1:
+                metric_name = parts[-1]
+            elif parts[-2] == 'fold':
+                metric_name = '_'.join(parts[-4:-2])
+            else:
+                metric_name = '_'.join(parts[-1])
+
             max_val = metric_bounds.max_value
             min_val = metric_bounds.min_value
 
