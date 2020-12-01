@@ -55,6 +55,8 @@ def train_kfold(cfg: DictConfig):
 
         trainer.fit(training_loop, datamodule=datamodule)
 
+    logger.log_model_average()
+
 
 if __name__ == '__main__':
     train_kfold()

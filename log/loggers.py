@@ -1,3 +1,4 @@
+from collections import defaultdict
 from dataclasses import dataclass
 
 from pytorch_lightning.loggers import WandbLogger
@@ -89,13 +90,27 @@ class KFoldWandbLogger(WandbBoundLogger):
     @rank_zero_only
     def log_metrics(self, metrics, step):
         assert self.current_fold is not None, 'select a fold to log to.'
-        metrics_at_k = {f'fold_{self.current_fold:02d}_{name}': value for name, value in metrics.items() if
+        metrics_at_k = {f'{name}_fold_{self.current_fold:02d}': value for name, value in metrics.items() if
                         name != 'epoch'}
         # epoch is not fold specific
         metrics_at_k['epoch'] = metrics['epoch']
         super().log_metrics(metrics_at_k, step)
 
+    @rank_zero_only
     def log_model_average(self):
-        # TODO implement
+        metric_averages = defaultdict(lambda: {'max': 0, 'min': 0})
         for name, metric_bounds in self._bounds_dict.items():
-            pass
+            metric_name = '_'.join(name.split('_')[-2:])
+            max_val = metric_bounds.max_value
+            min_val = metric_bounds.min_value
+
+            metric_averages[metric_name]['max'] += max_val
+            metric_averages[metric_name]['min'] += min_val
+
+        n_cur_folds = (self.current_fold + 1)
+        for name, val in metric_averages.items():
+            avg_max = metric_averages[name]['max'] / n_cur_folds
+            avg_min = metric_averages[name]['min'] / n_cur_folds
+
+            metrics = {f'avg_max_{name}': avg_max, f'avg_min_{name}': avg_min}
+            self.experiment.summary.update(metrics)
