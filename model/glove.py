@@ -8,11 +8,20 @@ logger = logging.getLogger(__name__)
 
 
 class GloVeEmbedding(Module):
+    """Embedding Layer that initializes with pre-trained GloVe embeddings given a vocabulary.
+    """
+
     def __init__(self,
                  word_to_id: dict,
                  dim: int = 300,
                  glove_name: str = '840B',
                  cache: str = 'data/.glove_cache'):
+        """
+        :param word_to_id: mapping from words to integer ids
+        :param dim: dimension of the GloVe embeddings to use.
+        :param glove_name: one of ['42B', '840B', 'twitter.27B, '6B']
+        :param cache: directory to download GloVe vectors to.
+        """
         super().__init__()
 
         cache = to_absolute_path(cache)
