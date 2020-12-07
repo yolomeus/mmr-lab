@@ -1,0 +1,17 @@
+# @package _global_
+model:
+  _target_: model.fenet.FENet
+  vocab_filepath: data/generated/vocab.json
+  h_dim: 100
+  kernel_size: 3
+  n_kernels: 50
+  dropout_rate: 0.3
+loss:
+  _target_: torch.nn.CrossEntropyLoss
+
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 1e-3
+
+loop:
+  _target_: loop.DefaultClassificationLoop
