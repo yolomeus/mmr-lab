@@ -26,6 +26,8 @@ def train_kfold(cfg: DictConfig):
                                               num_workers=cfg.num_workers,
                                               pin_memory=cfg.gpus > 0)
 
+    # make sure data is prepared before calling setup
+    datamodule.prepare_data()
     for i in range(datamodule.k_folds):
         datamodule.setup(fold=i)
         logger.set_fold(i)
