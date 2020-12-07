@@ -52,7 +52,8 @@ def train_kfold(cfg: DictConfig):
                           gpus=cfg.gpus,
                           deterministic=True,
                           logger=logger,
-                          callbacks=[model_checkpoint, early_stopping])
+                          callbacks=[model_checkpoint, early_stopping],
+                          accumulate_grad_batches=train_cfg.acc_batches)
 
         trainer.fit(training_loop, datamodule=datamodule)
 

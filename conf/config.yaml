@@ -1,5 +1,5 @@
 defaults:
-  - model: dummy
+  - model: fenet
   - datamodule: mvsa
 
 gpus: 1
@@ -8,10 +8,11 @@ random_seed: 1590258941
 wandb_log: True
 
 training:
-  epochs: 3
-  batch_size: 32
+  epochs: 100
+  batch_size: 8
+  acc_batches: 8
   # checkpointing
-  save_ckpts: 10
+  save_ckpts: 3
   monitor: val_loss
   mode: min
   patience: 5
@@ -24,9 +25,11 @@ testing:
 # metric_module: pytorch_lightning.metrics.classification
 metrics:
   - _target_: pytorch_lightning.metrics.classification.Accuracy
-  - _target_: pytorch_lightning.metrics.classification.Fbeta
-    num_classes: 10
+  - _target_: pytorch_lightning.metrics.classification.F1
+    num_classes: 3
 
 hydra:
   run:
+    dir: ./outputs/${model._target_}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
     dir: ./outputs/${model._target_}/${now:%Y-%m-%d}/${now:%H-%M-%S}
