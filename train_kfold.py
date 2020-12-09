@@ -33,7 +33,7 @@ def train_kfold(cfg: DictConfig):
         logger.set_fold(i)
 
         training_loop = instantiate(cfg.loop, cfg)
-        logger.watch(training_loop)
+        # logger.watch(training_loop)
         # fold specific checkpoint path
         ckpt_path = os.path.join(os.getcwd(),
                                  f'checkpoints/fold_{i}/',
