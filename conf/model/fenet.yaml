@@ -6,6 +6,8 @@ model:
   kernel_size: 3
   n_kernels: 50
   dropout_rate: 0.3
+  img_backbone: 'resnet152'
+
 loss:
   _target_: torch.nn.CrossEntropyLoss
 

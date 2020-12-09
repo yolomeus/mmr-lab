@@ -104,7 +104,7 @@ class InformationFusion(Module):
 
         self.dp = Dropout(dropout_rate)
         self.tanh = Tanh()
-        self.row_softmax = Softmax(dim=1)
+        self.row_softmax = Softmax(dim=-1)
 
     def forward(self, inputs):
         target, auxiliary = inputs
