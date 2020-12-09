@@ -36,7 +36,7 @@ def train_kfold(cfg: DictConfig):
         # logger.watch(training_loop)
         # fold specific checkpoint path
         ckpt_path = os.path.join(os.getcwd(),
-                                 f'checkpoints/fold_{i}/',
+                                 f'checkpoints/fold_{i:02d}/',
                                  '{epoch:03d}-{' + train_cfg.monitor + ':.3f}')
 
         model_checkpoint = ModelCheckpoint(save_top_k=train_cfg.save_ckpts,
