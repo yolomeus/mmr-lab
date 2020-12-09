@@ -10,10 +10,10 @@ from model.glove import GloVeEmbedding
 
 class FENet(Module):
     # TODO docstring
-    def __init__(self, vocab_filepath, h_dim, n_kernels, kernel_size, dropout_rate):
+    def __init__(self, vocab_filepath, h_dim, n_kernels, kernel_size, dropout_rate, img_backbone):
         super().__init__()
         self.text_enc = TextEncoding(vocab_filepath)
-        self.img_enc = ImageEncoding('resnet152')
+        self.img_enc = ImageEncoding(img_backbone)
 
         img_dim = 49
         text_dim = 300
