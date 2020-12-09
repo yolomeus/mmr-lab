@@ -43,8 +43,9 @@ class FENet(Module):
         x_txt = self.text_enc(tokens)
         x_img = self.img_enc(images)
 
-        fused_txt = self.text_img_fuse([x_txt, x_img])
-        fused_img = self.img_text_fuse([x_img, x_txt])
+        att_mask = self._get_attention_mask(tokens, x_img.shape[1])
+        fused_txt = self.text_img_fuse([x_txt, x_img], att_mask)
+        fused_img = self.img_text_fuse([x_img, x_txt], att_mask.transpose(2, 1))
 
         x_txt = self.text_extract(fused_txt)
         x_img = self.img_extract(fused_img)
@@ -52,6 +53,14 @@ class FENet(Module):
         x = torch.cat([x_txt, x_img], dim=-1)
         x = self.lin_out(x)
         return x
+
+    @staticmethod
+    def _get_attention_mask(tokens, to_seq_len, pad_token=0):
+        attention_mask = torch.zeros_like(tokens).unsqueeze(-1)
+        attention_mask[tokens == pad_token] = -10000.0
+        target_shape = tuple(attention_mask.shape[:-1]) + (to_seq_len,)
+        attention_mask = attention_mask.expand(target_shape)
+        return attention_mask
 
 
 class TextEncoding(Module):
@@ -106,7 +115,7 @@ class InformationFusion(Module):
         self.tanh = Tanh()
         self.row_softmax = Softmax(dim=-1)
 
-    def forward(self, inputs):
+    def forward(self, inputs, attention_mask=None):
         target, auxiliary = inputs
         target, auxiliary = self.dp(target), self.dp(auxiliary)
 
@@ -114,8 +123,12 @@ class InformationFusion(Module):
         target_h = self.tanh(self.t_project(target))
         auxiliary_h = self.tanh(self.a_project(auxiliary)).transpose(2, 1)
 
+        raw_attention_mat = target_h @ auxiliary_h
+        # don't attend over padding tokens
+        if attention_mask is not None:
+            raw_attention_mat += attention_mask
         # compute attention matrix and weight
-        attention_mat = self.row_softmax(target_h @ auxiliary_h)
+        attention_mat = self.row_softmax(raw_attention_mat)
         # weighted sum of aux vectors for each target vector
         weighted_aux = attention_mat @ auxiliary
 
