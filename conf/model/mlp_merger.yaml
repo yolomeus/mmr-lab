@@ -1,0 +1,18 @@
+# @package _global_
+model:
+  _target_: model.mlp_merger.MLPMerger
+  vocab_filepath: data/generated/vocab.json
+  h_dim: 100
+  n_hidden_layers: 3
+  dropout_rate: 0.3
+  img_backbone: 'resnet152'
+
+loss:
+  _target_: torch.nn.CrossEntropyLoss
+
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 1e-3
+
+loop:
+  _target_: loop.DefaultClassificationLoop
