@@ -9,8 +9,18 @@ from model.glove import GloVeEmbedding
 
 
 class FENet(Module):
-    # TODO docstring
-    def __init__(self, vocab_filepath, h_dim, n_kernels, kernel_size, dropout_rate, img_backbone):
+    """Fusion-Extraction Network as described in https://link.springer.com/chapter/10.1007/978-3-030-47436-2_59"""
+
+    def __init__(self, vocab_filepath, h_dim, n_kernels, kernel_size, dropout_rate, img_backbone='resnet152'):
+        """
+
+        :param vocab_filepath: path to a json which contains a mapping from tokens to ids.
+        :param h_dim: hidden dimension.
+        :param n_kernels: number of kernels in the conv layers.
+        :param kernel_size: kernel size for the conv layers.
+        :param dropout_rate: dropout rate applied before each fully connected and conv layer.
+        :param img_backbone: torch hub module to use for image extraction. Currently assumes a resnet.
+        """
         super().__init__()
         self.text_enc = TextEncoding(vocab_filepath)
         self.img_enc = ImageEncoding(img_backbone)
@@ -64,7 +74,7 @@ class FENet(Module):
 
 
 class TextEncoding(Module):
-    """Text encoding layer of the FENet
+    """Text encoding layer of the FENet.
     """
 
     def __init__(self, vocab_filepath):
@@ -89,7 +99,7 @@ class ImageEncoding(Module):
     def __init__(self, resnet_version='resnet152', repo_or_dir='pytorch/vision:v0.6.0'):
         """
         :param resnet_version: which resnet to use: ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
-        :param repo_or_dir:
+        :param repo_or_dir: torch hub repo or model directory.
         """
         super().__init__()
         # only use layers until last feature map extraction
@@ -104,7 +114,18 @@ class ImageEncoding(Module):
 
 
 class InformationFusion(Module):
+    """Interactive Information Fusion Layer as described in the paper. Takes a target and auxiliary sequence and
+    produces a new representation of the target sequence by attending to the auxiliary sequence.
+    """
+
     def __init__(self, target_dim, auxiliary_dim, h_dim, dropout_rate):
+        """
+
+        :param target_dim: hidden dimension of attending sequence.
+        :param auxiliary_dim: hidden dimension of the sequence that is attended to.
+        :param h_dim: dimension of the common space, both sequences are projected to.
+        :param dropout_rate: Dropout before projections.
+        """
         super().__init__()
 
         self.t_project = Linear(target_dim, h_dim)
@@ -116,6 +137,12 @@ class InformationFusion(Module):
         self.row_softmax = Softmax(dim=-1)
 
     def forward(self, inputs, attention_mask=None):
+        """
+
+        :param inputs: tuple of target and auxiliary sequence.
+        :param attention_mask: mask for the attention matrix that masks out all pad token positions, with dimensions
+        [batch_size x target_seq_len x aux_seq_len].
+        """
         target, auxiliary = inputs
         target, auxiliary = self.dp(target), self.dp(auxiliary)
 
@@ -139,7 +166,18 @@ class InformationFusion(Module):
 
 
 class InformationExtraction(Module):
+    """Specific Information Extraction Layer as in the paper. Inputs are convolved with two sets of kernels, then one of
+    the outputs is used to gate the other one and max pooling is applied.
+    """
+
     def __init__(self, in_channels, n_kernels, kernel_size, dropout_rate):
+        """
+
+        :param in_channels: hidden dimension of input sequence.
+        :param n_kernels: number of conv kernels/new hidden dimension.
+        :param kernel_size: size of each kernel.
+        :param dropout_rate:
+        """
         super().__init__()
         padding = (kernel_size - 1) // 2
         self.conv_extract = Conv1d(in_channels, n_kernels, kernel_size, padding=padding)
