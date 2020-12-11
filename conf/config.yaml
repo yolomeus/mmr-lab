@@ -22,11 +22,11 @@ testing:
   test_best_k: 5
   batch_size: 128
 
-# metric_module: pytorch_lightning.metrics.classification
 metrics:
   - _target_: pytorch_lightning.metrics.classification.Accuracy
   - _target_: pytorch_lightning.metrics.classification.F1
     num_classes: 3
+    average: 'macro'
 
 hydra:
   run:
