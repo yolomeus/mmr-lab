@@ -16,3 +16,14 @@ dataset here) or passed as arguments, e.g.:
 ```shell
 $ python train_kfold.py num_workers=4 training.batch_size=8 training.acc_batches=4
 ```
+
+### Dependencies
+
+All dependencies can be found in ``environment.yml``. You can use [anaconda](https://www.anaconda.com/) to automatically
+create a virtual environment which fulfills the requirements:
+
+```shell
+$ conda env create -f environment.yml
+```
+
+Or install the dependencies manually using pip.
