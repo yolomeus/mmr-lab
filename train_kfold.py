@@ -18,7 +18,8 @@ def train_kfold(cfg: DictConfig):
 
     train_cfg = cfg.training
 
-    logger = KFoldWandbLogger(tags=['train']) if cfg.wandb_log else True
+    assert cfg.wandb_log, 'Currently, only the WandB Logger supports KFold logging.'
+    logger = KFoldWandbLogger(tags=['train'])
 
     datamodule: KFoldDataModule = instantiate(cfg.datamodule,
                                               train_conf=cfg.training,
