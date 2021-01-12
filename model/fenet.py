@@ -96,7 +96,7 @@ class ImageEncoding(Module):
     """Image encoding layer of the FENet
     """
 
-    def __init__(self, resnet_version='resnet152', repo_or_dir='pytorch/vision:v0.6.0'):
+    def __init__(self, resnet_version='resnet152', repo_or_dir='pytorch/vision:v0.6.0', freeze=True):
         """
         :param resnet_version: which resnet to use: ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152']
         :param repo_or_dir: torch hub repo or model directory.
@@ -106,6 +106,10 @@ class ImageEncoding(Module):
         resnet = hub.load(repo_or_dir, resnet_version, pretrained=True)
         modules = list(resnet.children())[:-2]
         self.resnet = Sequential(*modules)
+
+        if freeze:
+            for param in self.resnet.parameters():
+                param.requires_grad = False
 
     def forward(self, images):
         x = self.resnet(images)
