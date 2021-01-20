@@ -111,12 +111,11 @@ class MVSADataModule(KFoldDataModule):
         for filename in tqdm(os.listdir(self.instances_dir), desc='building vocabulary'):
             if filename.endswith('.txt'):
                 text_path = os.path.join(self.instances_dir, filename)
-                with open(text_path, 'r', encoding='utf8') as fp:
+                with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
                     tweet = fp.readline()
                     tokens = fe_net_tokenize(tweet)
                     for token in tokens:
                         vocab.add(token.lower())
-
         word_to_id = {word: i for i, word in enumerate(self.special_tokens)}
         for i, word in enumerate(list(vocab)):
             word_to_id[word] = i + len(self.special_tokens)
@@ -178,7 +177,7 @@ class MVSADataset(Dataset):
 
     def _read_text_instance(self, file_id):
         text_path = os.path.join(self.data_dir, f'{file_id}.txt')
-        with open(text_path, 'r', encoding='utf8') as fp:
+        with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
             tweet = fp.readline()
         return tweet
 
