@@ -10,7 +10,7 @@ wandb_log: True
 
 training:
   epochs: 100
-  batch_size: 8
+  batch_size: 128
   # accumulate gradients for this many batches
   acc_batches: 1
   # checkpointing
@@ -22,13 +22,17 @@ training:
 testing:
   log_dir: 'outputs/model.mlp.MLP/2020-11-19/18-17-17'
   test_best_k: 5
-  batch_size: 8
+  batch_size: ${training.batch_size}
 
 metrics:
   - _target_: pytorch_lightning.metrics.classification.Accuracy
+  - _target_: pytorch_lightning.metrics.classification.Precision
+    num_classes: 3
+  - _target_: pytorch_lightning.metrics.classification.Recall
+    num_classes: 3
   - _target_: pytorch_lightning.metrics.classification.F1
     num_classes: 3
-    average: 'macro'
+    average: 'weighted'
 
 hydra:
   run:
