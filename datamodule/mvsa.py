@@ -24,7 +24,8 @@ class MVSADataModule(KFoldDataModule):
     """
 
     def __init__(self,
-                 data_dir,
+                 input_dir,
+                 output_dir,
                  k_folds,
                  train_conf,
                  test_conf,
@@ -43,11 +44,13 @@ class MVSADataModule(KFoldDataModule):
         self.special_tokens = ['<PAD>', '<UNK>']
         self.label_filename = 'valid_pairlist.txt'
         self.split_dirname = 'splits'
-        self.vocab_file = to_absolute_path('data/generated/vocab.json')
+        self.vocab_file = to_absolute_path(os.path.join(output_dir, 'vocab.json'))
 
-        self.data_dir = to_absolute_path(data_dir)
-        self.split_dir = os.path.join(self.data_dir, self.split_dirname)
-        self.instances_dir = os.path.join(self.data_dir, 'data')
+        self.input_dir = to_absolute_path(input_dir)
+        self.output_dir = to_absolute_path(output_dir)
+
+        self.raw_data_dir = os.path.join(self.input_dir, 'data')
+        self.split_dir = os.path.join(self.input_dir, self.split_dirname)
 
     def _set_fold(self, i):
         self._current_fold = i
@@ -63,7 +66,7 @@ class MVSADataModule(KFoldDataModule):
 
     def prepare_data(self, *args, **kwargs):
         # build vocab or load existing
-        os.makedirs(to_absolute_path('data/generated/'), exist_ok=True)
+        os.makedirs(self.output_dir, exist_ok=True)
         if not os.path.exists(self.vocab_file):
             self._build_vocab(self.vocab_file)
 
@@ -71,7 +74,7 @@ class MVSADataModule(KFoldDataModule):
         if fold is not None:
             self._set_fold(fold)
         # load labels
-        label_filepath = os.path.join(self.data_dir, self.label_filename)
+        label_filepath = os.path.join(self.input_dir, self.label_filename)
         id_label = pd.read_csv(label_filepath).to_numpy()
         self.id_to_label = {idx: label for idx, label in id_label}
         # load vocab
@@ -93,7 +96,7 @@ class MVSADataModule(KFoldDataModule):
 
         # filter out contradictory instances, i.e. those without label
         ids = list(filter(lambda x: x in self.id_to_label, ids))
-        return self.instances_dir, ids, self.id_to_label, self.word_to_id
+        return self.raw_data_dir, self.output_dir, ids, self.id_to_label, self.word_to_id
 
     def get_dataset_class(self):
         return MVSADataset
@@ -108,9 +111,9 @@ class MVSADataModule(KFoldDataModule):
     def _build_vocab(self, output_file):
         vocab = set()
         # build vocabulary
-        for filename in tqdm(os.listdir(self.instances_dir), desc='building vocabulary'):
+        for filename in tqdm(os.listdir(self.raw_data_dir), desc='building vocabulary'):
             if filename.endswith('.txt'):
-                text_path = os.path.join(self.instances_dir, filename)
+                text_path = os.path.join(self.raw_data_dir, filename)
                 with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
                     tweet = fp.readline()
                     tokens = fe_net_tokenize(tweet)
@@ -125,8 +128,9 @@ class MVSADataModule(KFoldDataModule):
 
 
 class MVSADataset(Dataset):
-    def __init__(self, data_dir, ids, id_to_label, word_to_id):
+    def __init__(self, data_dir, output_dir, ids, id_to_label, word_to_id):
         self.data_dir = data_dir
+        self.output_dir = output_dir
         self.ids = ids
         self.id_to_label = id_to_label
         self.word_to_id = word_to_id
@@ -152,8 +156,7 @@ class MVSADataset(Dataset):
         # img = (self.denormalize(img) * 255).type(torch.uint8)
         # self._show_img(img)
 
-        text = self._read_text_instance(file_id)
-        tokens = fe_net_tokenize(text)
+        tokens = self._read_text_instance(file_id)
         token_ids = torch.as_tensor([self.word_to_id.get(token, '<UNK>') for token in tokens])
 
         label = self.id_to_label[file_id]
@@ -179,7 +182,7 @@ class MVSADataset(Dataset):
         text_path = os.path.join(self.data_dir, f'{file_id}.txt')
         with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
             tweet = fp.readline()
-        return tweet
+        return fe_net_tokenize(tweet)
 
     @staticmethod
     def _show_img(img):
