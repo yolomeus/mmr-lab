@@ -1,5 +1,6 @@
 import json
 import os
+import pickle
 from typing import Optional
 
 import numpy as np
@@ -12,6 +13,7 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 from torchvision.transforms import Resize, Normalize, Compose
 from tqdm import tqdm
+from transformers import AutoTokenizer, AutoModel
 
 from datamodule import DatasetSplit
 from datamodule.default_datamodule import KFoldDataModule
@@ -26,31 +28,46 @@ class MVSADataModule(KFoldDataModule):
     def __init__(self,
                  input_dir,
                  output_dir,
+                 word_vec_type,
                  k_folds,
                  train_conf,
                  test_conf,
                  num_workers,
                  pin_memory):
+        """
+
+        :param input_dir: the MVSA base directory
+        :param output_dir: any generated data will be placed here
+        :param word_vec_type: type of word embeddings used, can be either 'glove' or 'bert'.
+        :param k_folds: total number of folds.
+        :param train_conf:
+        :param test_conf:
+        :param num_workers:
+        :param pin_memory:
+        """
         super().__init__(k_folds, train_conf, test_conf, num_workers, pin_memory)
 
-        self._current_fold = None
-        self.train_ids = None
-        self.val_ids = None
-        self.test_ids = None
-        self.id_to_label = None
-
-        self.word_to_id = None
-
-        self.special_tokens = ['<PAD>', '<UNK>']
+        self.word_vec_type = word_vec_type
         self.label_filename = 'valid_pairlist.txt'
-        self.split_dirname = 'splits'
-        self.vocab_file = to_absolute_path(os.path.join(output_dir, 'vocab.json'))
 
         self.input_dir = to_absolute_path(input_dir)
         self.output_dir = to_absolute_path(output_dir)
 
         self.raw_data_dir = os.path.join(self.input_dir, 'data')
-        self.split_dir = os.path.join(self.input_dir, self.split_dirname)
+        self.split_dir = os.path.join(self.input_dir, 'splits')
+
+        # here we store state w.r.t the current fold
+        self._current_fold = None
+
+        self.train_ids = None
+        self.val_ids = None
+        self.test_ids = None
+        self.id_to_label = None
+
+        # these only apply to glove
+        self.special_tokens = ['<PAD>', '<UNK>']
+        self.vocab_file = to_absolute_path(os.path.join(output_dir, 'vocab.json'))
+        self.word_to_id = None
 
     def _set_fold(self, i):
         self._current_fold = i
@@ -65,10 +82,11 @@ class MVSADataModule(KFoldDataModule):
         self.test_ids = self._load_ids(test_file)
 
     def prepare_data(self, *args, **kwargs):
-        # build vocab or load existing
         os.makedirs(self.output_dir, exist_ok=True)
-        if not os.path.exists(self.vocab_file):
-            self._build_vocab(self.vocab_file)
+        if self.word_vec_type == 'glove':
+            self._build_glove_vocab()
+        elif self.word_vec_type == 'bert':
+            self._export_bert_embeds()
 
     def setup(self, stage: Optional[str] = None, fold=None):
         if fold is not None:
@@ -99,7 +117,7 @@ class MVSADataModule(KFoldDataModule):
         return self.raw_data_dir, self.output_dir, ids, self.id_to_label, self.word_to_id
 
     def get_dataset_class(self):
-        return MVSADataset
+        return MVSADataset if self.word_vec_type == 'glove' else BERTMVSADataset
 
     @staticmethod
     def _load_ids(path):
@@ -108,23 +126,53 @@ class MVSADataModule(KFoldDataModule):
         ids = list(map(int, map(str.strip, ids)))
         return ids
 
-    def _build_vocab(self, output_file):
-        vocab = set()
-        # build vocabulary
-        for filename in tqdm(os.listdir(self.raw_data_dir), desc='building vocabulary'):
-            if filename.endswith('.txt'):
+    def _build_glove_vocab(self):
+        """Build a vocabulary to use with GloVe and store it in a json file.
+        """
+        if not os.path.exists(self.vocab_file):
+            vocab = set()
+            # build vocabulary
+            for filename in tqdm(os.listdir(self.raw_data_dir), desc='building vocabulary'):
+                if filename.endswith('.txt'):
+                    text_path = os.path.join(self.raw_data_dir, filename)
+                    with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
+                        tweet = fp.readline()
+                        tokens = fe_net_tokenize(tweet)
+                        for token in tokens:
+                            vocab.add(token.lower())
+            word_to_id = {word: i for i, word in enumerate(self.special_tokens)}
+            for i, word in enumerate(list(vocab)):
+                word_to_id[word] = i + len(self.special_tokens)
+
+            with open(self.vocab_file, 'w', encoding='utf8') as vocab_file:
+                json.dump(word_to_id, vocab_file)
+
+    def _export_bert_embeds(self):
+        """Convert text file data to bert embeddings and store on disk.
+        """
+
+        out_file = os.path.join(self.output_dir, 'bert_vecs.pkl')
+        if not os.path.exists(out_file):
+            cuda_available = torch.cuda.is_available()
+            tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+            bert = AutoModel.from_pretrained("bert-base-uncased")
+            bert = bert if not cuda_available else bert.to('cuda')
+
+            vec_dict = {}
+            text_files = list(filter(lambda x: x.endswith('.txt') and 'c' not in x, os.listdir(self.raw_data_dir)))
+            for filename in tqdm(text_files, desc='extracting BERT embeddings'):
                 text_path = os.path.join(self.raw_data_dir, filename)
+                idx = int(filename.split('.')[0])
                 with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
                     tweet = fp.readline()
-                    tokens = fe_net_tokenize(tweet)
-                    for token in tokens:
-                        vocab.add(token.lower())
-        word_to_id = {word: i for i, word in enumerate(self.special_tokens)}
-        for i, word in enumerate(list(vocab)):
-            word_to_id[word] = i + len(self.special_tokens)
+                    tokens = tokenizer(tweet, return_tensors="pt")
+                    tokens = tokens if not cuda_available else tokens.to('cuda')
+                    with torch.no_grad():
+                        vec_seq = bert(**tokens).last_hidden_state.squeeze(0)
+                        vec_dict[idx] = vec_seq.detach().cpu()
 
-        with open(output_file, 'w', encoding='utf8') as vocab_file:
-            json.dump(word_to_id, vocab_file)
+            with open(out_file, 'wb') as fp:
+                pickle.dump(vec_dict, fp)
 
 
 class MVSADataset(Dataset):
@@ -156,9 +204,8 @@ class MVSADataset(Dataset):
         # img = (self.denormalize(img) * 255).type(torch.uint8)
         # self._show_img(img)
 
-        tokens = self._read_text_instance(file_id)
-        token_ids = torch.as_tensor([self.word_to_id.get(token, '<UNK>') for token in tokens])
-
+        # in the case of BERT embeddings these are vectors
+        token_ids = self._read_text_instance(file_id)
         label = self.id_to_label[file_id]
 
         return img, token_ids, label
@@ -182,10 +229,22 @@ class MVSADataset(Dataset):
         text_path = os.path.join(self.data_dir, f'{file_id}.txt')
         with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
             tweet = fp.readline()
-        return fe_net_tokenize(tweet)
+        tokens = fe_net_tokenize(tweet)
+        return torch.as_tensor([self.word_to_id.get(token, '<UNK>') for token in tokens])
 
     @staticmethod
     def _show_img(img):
         np_img = img.numpy().transpose(1, 2, 0)
         pil_img = Image.fromarray(np_img)
         pil_img.show()
+
+
+class BERTMVSADataset(MVSADataset):
+    def __init__(self, data_dir, output_dir, ids, id_to_label, word_to_id):
+        super().__init__(data_dir, output_dir, ids, id_to_label, word_to_id)
+        with open(os.path.join(output_dir, 'bert_vecs.pkl'), 'rb') as fp:
+            self.file_id_to_bert = pickle.load(fp)
+
+    def _read_text_instance(self, file_id):
+        bert_embeds = self.file_id_to_bert[file_id]
+        return bert_embeds

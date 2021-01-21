@@ -3,5 +3,6 @@ _target_: datamodule.mvsa.MVSADataModule
 
 input_dir: D:\datasets\multimodal\sentiment_analysis\mvsa_data\mvsa_multiple
 output_dir: data/generated/
+word_vec_type: bert
 
 k_folds: 11
