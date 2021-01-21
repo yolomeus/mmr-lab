@@ -3,7 +3,7 @@ import json
 import torch
 from hydra.utils import to_absolute_path
 from torch import hub
-from torch.nn import Module, Sequential, Linear, Tanh, Softmax, Conv1d, Sigmoid, Dropout
+from torch.nn import Module, Sequential, Linear, Tanh, Softmax, Conv1d, Sigmoid, Dropout, Identity
 
 from model.glove import GloVeEmbedding
 
@@ -11,7 +11,14 @@ from model.glove import GloVeEmbedding
 class FENet(Module):
     """Fusion-Extraction Network as described in https://link.springer.com/chapter/10.1007/978-3-030-47436-2_59"""
 
-    def __init__(self, vocab_filepath, h_dim, n_kernels, kernel_size, dropout_rate, img_backbone='resnet152'):
+    def __init__(self,
+                 vocab_filepath,
+                 h_dim,
+                 n_kernels,
+                 kernel_size,
+                 dropout_rate,
+                 text_backbone,
+                 img_backbone='resnet152'):
         """
 
         :param vocab_filepath: path to a json which contains a mapping from tokens to ids.
@@ -22,11 +29,20 @@ class FENet(Module):
         :param img_backbone: torch hub module to use for image extraction. Currently assumes a resnet.
         """
         super().__init__()
-        self.text_enc = TextEncoding(vocab_filepath)
+
+        if text_backbone == 'glove':
+            self.text_enc = TextEncoding(vocab_filepath)
+            text_dim = 300
+        elif text_backbone == 'bert':
+            # we already receive vectors for BERT
+            self.text_enc = Identity()
+            text_dim = 768
+        else:
+            raise NotImplementedError()
+
         self.img_enc = ImageEncoding(img_backbone)
 
         img_dim = 49
-        text_dim = 300
         self.text_img_fuse = InformationFusion(target_dim=text_dim,
                                                auxiliary_dim=img_dim,
                                                h_dim=h_dim,
@@ -53,9 +69,8 @@ class FENet(Module):
         x_txt = self.text_enc(tokens)
         x_img = self.img_enc(images)
 
-        att_mask = self._get_attention_mask(tokens, x_img.shape[1])
-        fused_txt = self.text_img_fuse([x_txt, x_img], att_mask)
-        fused_img = self.img_text_fuse([x_img, x_txt], att_mask.transpose(2, 1))
+        fused_txt = self.text_img_fuse([x_txt, x_img])
+        fused_img = self.img_text_fuse([x_img, x_txt])
 
         x_txt = self.text_extract(fused_txt)
         x_img = self.img_extract(fused_img)
@@ -63,14 +78,6 @@ class FENet(Module):
         x = torch.cat([x_txt, x_img], dim=-1)
         x = self.lin_out(x)
         return x
-
-    @staticmethod
-    def _get_attention_mask(tokens, to_seq_len, pad_token=0):
-        attention_mask = torch.zeros_like(tokens).unsqueeze(-1)
-        attention_mask[tokens == pad_token] = -10000.0
-        target_shape = tuple(attention_mask.shape[:-1]) + (to_seq_len,)
-        attention_mask = attention_mask.expand(target_shape)
-        return attention_mask
 
 
 class TextEncoding(Module):
