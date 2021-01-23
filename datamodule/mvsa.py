@@ -154,28 +154,28 @@ class MVSADataModule(KFoldDataModule):
         """Convert text file data to bert embeddings and store on disk.
         """
 
-        out_file = os.path.join(self.output_dir, 'bert_vecs.pkl')
-        if not os.path.exists(out_file):
-            cuda_available = torch.cuda.is_available()
-            tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
-            bert = AutoModel.from_pretrained("bert-base-uncased")
-            bert = bert if not cuda_available else bert.to('cuda')
+        cuda_available = torch.cuda.is_available()
+        tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+        bert = AutoModel.from_pretrained("bert-base-uncased")
+        bert = bert if not cuda_available else bert.to('cuda')
 
-            vec_dict = {}
-            text_files = list(filter(lambda x: x.endswith('.txt') and 'c' not in x, os.listdir(self.raw_data_dir)))
-            for filename in tqdm(text_files, desc='extracting BERT embeddings'):
-                text_path = os.path.join(self.raw_data_dir, filename)
-                idx = int(filename.split('.')[0])
-                with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
-                    tweet = fp.readline()
-                    tokens = tokenizer(tweet, return_tensors="pt")
-                    tokens = tokens if not cuda_available else tokens.to('cuda')
-                    with torch.no_grad():
-                        vec_seq = bert(**tokens).last_hidden_state.squeeze(0)
-                        vec_dict[idx] = vec_seq.detach().cpu()
+        vec_dict = {}
+        text_files = list(filter(lambda x: x.endswith('.txt') and 'c' not in x, os.listdir(self.raw_data_dir)))
+        for filename in tqdm(text_files, desc='extracting BERT embeddings'):
+            text_path = os.path.join(self.raw_data_dir, filename)
+            idx = int(filename.split('.')[0])
+            with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
+                tweet = fp.readline()
+                tokens = tokenizer(tweet, return_tensors="pt")
+                tokens = tokens if not cuda_available else tokens.to('cuda')
+                with torch.no_grad():
+                    vec_seq = bert(**tokens).last_hidden_state.squeeze(0)
+                    vec_dict[idx] = vec_seq.detach().cpu()
 
+        for idx, bert_embeds in vec_dict.items():
+            out_file = os.path.join(self.output_dir, f'{idx}.pkl')
             with open(out_file, 'wb') as fp:
-                pickle.dump(vec_dict, fp)
+                pickle.dump(bert_embeds, fp)
 
 
 class MVSADataset(Dataset):
@@ -243,11 +243,8 @@ class MVSADataset(Dataset):
 
 
 class BERTMVSADataset(MVSADataset):
-    def __init__(self, data_dir, output_dir, ids, id_to_label, word_to_id):
-        super().__init__(data_dir, output_dir, ids, id_to_label, word_to_id)
-        with open(os.path.join(output_dir, 'bert_vecs.pkl'), 'rb') as fp:
-            self.file_id_to_bert = pickle.load(fp)
-
     def _read_text_instance(self, file_id):
-        bert_embeds = self.file_id_to_bert[file_id]
-        return bert_embeds
+        out_file = os.path.join(self.output_dir, f'{file_id}.pkl')
+        with open(os.path.join(out_file), 'rb') as fp:
+            bert_embeds = pickle.load(fp)
+            return bert_embeds
