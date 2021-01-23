@@ -161,16 +161,20 @@ class MVSADataModule(KFoldDataModule):
 
         vec_dict = {}
         text_files = list(filter(lambda x: x.endswith('.txt') and 'c' not in x, os.listdir(self.raw_data_dir)))
-        for filename in tqdm(text_files, desc='extracting BERT embeddings'):
+
+        for filename in tqdm(text_files, desc='extracting BERT embeddings (skipping existing)'):
             text_path = os.path.join(self.raw_data_dir, filename)
             idx = int(filename.split('.')[0])
+
             with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
-                tweet = fp.readline()
-                tokens = tokenizer(tweet, return_tensors="pt")
-                tokens = tokens if not cuda_available else tokens.to('cuda')
-                with torch.no_grad():
-                    vec_seq = bert(**tokens).last_hidden_state.squeeze(0)
-                    vec_dict[idx] = vec_seq.detach().cpu()
+                out_file = os.path.join(self.output_dir, f'{idx}.pkl')
+                if not os.path.exists(out_file):
+                    tweet = fp.readline()
+                    tokens = tokenizer(tweet, return_tensors="pt")
+                    tokens = tokens if not cuda_available else tokens.to('cuda')
+                    with torch.no_grad():
+                        vec_seq = bert(**tokens).last_hidden_state.squeeze(0)
+                        vec_dict[idx] = vec_seq.detach().cpu()
 
         for idx, bert_embeds in vec_dict.items():
             out_file = os.path.join(self.output_dir, f'{idx}.pkl')
