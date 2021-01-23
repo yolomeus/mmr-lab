@@ -39,7 +39,7 @@ class GloVeEmbedding(Module):
     def _init_glove_matrix(self):
         i = 0
         for word, idx in self.word_to_id.items():
-            word_vec = self.glove_vectors.get_vecs_by_tokens(word)
+            word_vec = self.glove_vectors.get_vecs_by_tokens(word, True)
             self.embeddings.weight.data[idx] = word_vec
             i += 1
 
@@ -47,4 +47,4 @@ class GloVeEmbedding(Module):
 
     def _unk_init(self, tensor):
         self.unk_count += 1
-        return init.normal_(tensor)
+        return init.normal_(tensor, std=0.25)

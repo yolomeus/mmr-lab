@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+from collections import defaultdict
 from typing import Optional
 
 import numpy as np
@@ -130,7 +131,7 @@ class MVSADataModule(KFoldDataModule):
         """Build a vocabulary to use with GloVe and store it in a json file.
         """
         if not os.path.exists(self.vocab_file):
-            vocab = set()
+            vocab = defaultdict(int)
             # build vocabulary
             for filename in tqdm(os.listdir(self.raw_data_dir), desc='building vocabulary'):
                 if filename.endswith('.txt'):
@@ -139,7 +140,9 @@ class MVSADataModule(KFoldDataModule):
                         tweet = fp.readline()
                         tokens = fe_net_tokenize(tweet)
                         for token in tokens:
-                            vocab.add(token.lower())
+                            vocab[token.lower()] += 1
+
+            vocab, _ = zip(*filter(lambda x: x[1] > 2, vocab.items()))
             word_to_id = {word: i for i, word in enumerate(self.special_tokens)}
             for i, word in enumerate(list(vocab)):
                 word_to_id[word] = i + len(self.special_tokens)
@@ -230,7 +233,7 @@ class MVSADataset(Dataset):
         with open(text_path, 'r', encoding='utf8', errors='replace') as fp:
             tweet = fp.readline()
         tokens = fe_net_tokenize(tweet)
-        return torch.as_tensor([self.word_to_id.get(token, '<UNK>') for token in tokens])
+        return torch.as_tensor([self.word_to_id.get(token, self.word_to_id['<UNK>']) for token in tokens])
 
     @staticmethod
     def _show_img(img):
